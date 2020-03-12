@@ -19,6 +19,7 @@ import './App.css';
 import Application from './config/application.config';
 import { themes, themeMap } from './config/themes.config';
 import axios from 'axios';
+import EntityTypes from './pages/EntityTypes';
 
 
 interface Props extends RouteComponentProps<any> {}
@@ -46,14 +47,14 @@ const App: React.FC<Props> = ({history, location}) => {
       }
       if (location.state && !user.redirect && user.error.type === '') {
         if (location.state.hasOwnProperty('from')) {
-          history.push(location.state.from.pathname);
+          history.push(location.state['from'].pathname);
         }
       }
       if (user.redirect || location.pathname === '/') {
         if (localStorage.getItem('dhIsInstalled') === 'false' && localStorage.getItem('dhUserHasManagePrivileges') === 'true') {
           history.push('/install');
         } else if (location.state && location.state.hasOwnProperty('from')) {
-            history.push(location.state.from.pathname);
+            history.push(location.state['from'].pathname);
         } else {
             history.push('/home');
         }
@@ -103,7 +104,7 @@ const App: React.FC<Props> = ({history, location}) => {
           <LoadData/>
         </PrivateRoute>
         <PrivateRoute path="/entity-tiles" exact>
-          <EntityTiles/>
+          <EntityTypes/>
         </PrivateRoute>
         <PrivateRoute path="/bench" exact>
           <Bench/>
