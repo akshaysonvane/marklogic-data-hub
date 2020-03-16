@@ -37,6 +37,7 @@ import com.marklogic.hub.dataservices.JobInfo;
 import com.marklogic.hub.oneui.exceptions.DataHubException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -164,6 +165,7 @@ public class ModelManager {
      * @param modelName Name of the entity model
      * @return - a JsonNode containing job info
      */
+    @PreAuthorize("hasRole('canReadEntityInstances')")
     public JsonNode getLatestJobInfo(String modelName) {
         return getJobInfoFromDB(finalDataServiceClient, modelName);
     }
@@ -173,6 +175,7 @@ public class ModelManager {
      *
      * @return - a list of JsonNode containing job info
      */
+    @PreAuthorize("hasRole('canReadEntityInstances')")
     public List<JsonNode> getLatestJobInfoForAllModels() {
         return getModelNames()
             .stream()

@@ -21,7 +21,8 @@ let response = {
   "authorities": [
     "canInstallDataHub",
     "canReadLoadData",
-    "canWriteLoadData"
+    "canWriteLoadData",
+    "canReadEntityInstances"
   ]
 };
 
