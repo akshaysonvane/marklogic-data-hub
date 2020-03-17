@@ -22,25 +22,21 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.marklogic.hub.FlowManager;
 import com.marklogic.hub.impl.FlowManagerImpl;
 import com.marklogic.hub.job.JobDocManager;
-import com.marklogic.hub.oneui.managers.SearchableManager;
+import com.marklogic.hub.oneui.managers.MapSearchableManager;
 import com.marklogic.hub.oneui.models.HubConfigSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 import java.util.List;
 
 @Controller
-@RequestMapping(value="/api/jobs")
-public class JobsController extends SearchableManager {
+@RequestMapping(value = "/api/jobs")
+public class JobsController extends MapSearchableManager {
     @Autowired
     private HubConfigSession hubConfig;
 
@@ -55,9 +51,10 @@ public class JobsController extends SearchableManager {
             List<String> flowNames = flowManager.getFlowNames();
             jobsArray = new ObjectMapper().createArrayNode();
             flowNames.forEach((name) -> {
-                    jobsArray.addAll((ArrayNode) getJobs(jobDocManager, null, name));
+                jobsArray.addAll((ArrayNode) getJobs(jobDocManager, null, name));
             });
-        } else {
+        }
+        else {
             jobsArray = (ArrayNode) getJobs(jobDocManager, null, flowName);
         }
         return new ResponseEntity<>(flattenJobsJson(jobsArray), HttpStatus.OK);
@@ -101,9 +98,11 @@ public class JobsController extends SearchableManager {
                 array.add(flattenJobsJson(json));
             });
             return array;
-        } else if (jobJSON.has("job")) {
+        }
+        else if (jobJSON.has("job")) {
             return jobJSON.get("job");
-        } else {
+        }
+        else {
             return jobJSON;
         }
     }
