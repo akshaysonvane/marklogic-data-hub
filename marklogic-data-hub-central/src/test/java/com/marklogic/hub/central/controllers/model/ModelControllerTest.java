@@ -14,11 +14,19 @@ import com.marklogic.hub.central.controllers.ModelController;
 import com.marklogic.hub.test.Customer;
 import com.marklogic.hub.test.ReferenceModelProject;
 import com.marklogic.mgmt.ManageClient;
+import com.marklogic.mgmt.api.API;
+import com.marklogic.mgmt.api.database.Database;
+import com.marklogic.mgmt.api.database.ElementIndex;
+import com.marklogic.mgmt.api.database.PathIndex;
+import com.marklogic.mgmt.api.database.PathNamespace;
+import com.marklogic.mgmt.mapper.DefaultResourceMapper;
+import com.marklogic.mgmt.resource.databases.DatabaseManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -147,14 +155,32 @@ public class ModelControllerTest extends AbstractHubCentralTest {
     }
 
     private void assertIndexDeployment() {
-        ManageClient manageClient = getHubClient().getManageClient();
         Stream.of(getHubConfig().getDbName(DatabaseKind.STAGING), getHubConfig().getDbName(DatabaseKind.FINAL)).forEach(databaseKind -> {
-            String indexConfig = manageClient.getJson("/manage/v2/databases/" + databaseKind + "/properties");
-            assertTrue(indexConfig.contains(DATABASE_PROPERTY_1), "Expected " + DATABASE_PROPERTY_1 + " to be in indexConfig: " + indexConfig);
-            assertTrue(indexConfig.contains(DATABASE_PROPERTY_2), "Expected " + DATABASE_PROPERTY_2 + " to be in indexConfig: " + indexConfig);
-            assertTrue(indexConfig.contains(ENTITY_PROPERTY_1), "Expected " + ENTITY_PROPERTY_1 + " to be in indexConfig: " + indexConfig);
-            assertTrue(indexConfig.contains(ENTITY_PROPERTY_2), "Expected " + ENTITY_PROPERTY_2 + " to be in indexConfig: " + indexConfig);
+            verifyIndexes(databaseKind);
         });
+    }
+
+    private void verifyIndexes(String dbName) {
+        String json = new DatabaseManager(getHubClient().getManageClient()).getPropertiesAsJson(dbName);
+        Database db = new DefaultResourceMapper(new API(getHubClient().getManageClient())).readResource(json, Database.class);
+
+        List<PathNamespace> pathNamespaces = db.getPathNamespace();
+        assertEquals(2, pathNamespaces.size());
+        assertEquals("ex", pathNamespaces.get(0).getPrefix(), "The existing namespace is expected to be first, as the model-based " +
+            "properties are expected to be merged on top of the existing properties");
+        assertEquals("http://example.org", pathNamespaces.get(0).getNamespaceUri());
+        assertEquals("es", pathNamespaces.get(1).getPrefix());
+        assertEquals("http://marklogic.com/entity-services", pathNamespaces.get(1).getNamespaceUri());
+
+        List<ElementIndex> rangeIndexes = db.getRangeElementIndex();
+        assertEquals(2, rangeIndexes.size());
+        assertEquals("testRangeIndexForDHFPROD4704", rangeIndexes.get(0).getLocalname());
+        assertEquals("someProperty", rangeIndexes.get(1).getLocalname());
+
+        List<PathIndex> pathIndexes = db.getRangePathIndex();
+        assertEquals(2, pathIndexes.size());
+        assertEquals("//*:instance/testPathIndexForDHFPROD4704", pathIndexes.get(0).getPathExpression());
+        assertEquals("//*:instance/Customer/someOtherProperty", pathIndexes.get(1).getPathExpression());
     }
 
     private void loadUnrelatedIndexes() {

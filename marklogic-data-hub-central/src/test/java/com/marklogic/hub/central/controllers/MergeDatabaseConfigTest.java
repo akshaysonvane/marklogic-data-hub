@@ -31,7 +31,7 @@ public class MergeDatabaseConfigTest {
 
         ModelController modelController = new ModelController();
 
-        JsonNode mergedNode = modelController.mergeIndexConfigs(dbConfig, indexConfig);
+        JsonNode mergedNode = modelController.mergeDatabaseProperties((ObjectNode)dbConfig, (ObjectNode)indexConfig);
         String mergedConfig = mergedNode.toString();
 
         assertIndexesAndFields(mergedConfig);
@@ -44,7 +44,7 @@ public class MergeDatabaseConfigTest {
 
         ModelController modelController = new ModelController();
 
-        JsonNode mergedNode = modelController.mergeIndexConfigs(dbConfig, indexConfig);
+        JsonNode mergedNode = modelController.mergeDatabaseProperties((ObjectNode)dbConfig, (ObjectNode)indexConfig);
         String mergedConfig = mergedNode.toString();
 
         assertEquals(1, StringUtils.countMatches(mergedConfig, ENTITY_SERVICES_RANGE_INDEX));

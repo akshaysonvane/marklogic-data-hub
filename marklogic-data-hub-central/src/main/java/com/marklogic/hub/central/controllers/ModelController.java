@@ -97,30 +97,35 @@ public class ModelController extends BaseController {
     void deployModelConfigs() {
         ManageClient manageClient = hubClientProvider.getHubClient().getManageClient();
 
+        long start = System.currentTimeMillis();
+        logger.info("Generating model-based resource configurations");
+
         JsonNode modelConfigNode = newService().generateModelConfig();
 
+        logger.info("Deploying search options");
         deploySearchOptions(modelConfigNode);
+
+        logger.info("Deploying protected paths");
         deployProtectedPaths(modelConfigNode, manageClient);
+
+        logger.info("Deploying query rolesets");
         deployQueryRolesets(modelConfigNode, manageClient);
+
+        logger.info("Deploying database indexes");
         deployIndexConfig(modelConfigNode, manageClient);
+
+        logger.info("Finished generating and deploying model-based resource configurations, time: " + (System.currentTimeMillis() - start));
     }
 
     private void deployIndexConfig(JsonNode modelConfigNode, ManageClient manageClient) {
         try {
             for (String databaseName : Arrays.asList(getHubClient().getDbName(DatabaseKind.STAGING), getHubClient().getDbName(DatabaseKind.FINAL))) {
-                // Get updated entity index configs
-                JsonNode indexNode = modelConfigNode.get("indexConfig");
-
-                // Get current db configuration
-                String dbConfig = manageClient.getJson("/manage/v2/databases/" + databaseName + "/properties");
-                JsonNode dbNode = new ObjectMapper().readTree(dbConfig);
-
-                indexNode = mergeIndexConfigs(dbNode, indexNode);
-
-                manageClient.putJson("/manage/v2/databases/" + databaseName + "/properties", indexNode.toString());
+                final ObjectNode modelBasedProperties = (ObjectNode)modelConfigNode.get("indexConfig");
+                final ObjectNode existingProperties = (ObjectNode)new ObjectMapper().readTree(manageClient.getJson("/manage/v2/databases/" + databaseName + "/properties"));
+                JsonNode mergedProperties = mergeDatabaseProperties(existingProperties, modelBasedProperties);
+                manageClient.putJson("/manage/v2/databases/" + databaseName + "/properties", mergedProperties.toString());
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException("Unable to deploy database indexes after updating entity models; cause: " + e.getMessage(), e);
         }
     }
@@ -169,40 +174,45 @@ public class ModelController extends BaseController {
     private void writeOptions(String databaseKind, QueryOptionsManager queryOptionsManager, String optionName, String options) {
         try {
             queryOptionsManager.writeOptionsAs(optionName, Format.XML, options);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException("Unable to deploy search options file " + optionName + " to " + databaseKind + " database after updating entity models; cause: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Gets fields common to both dbNode and indexNode and then merges them together.
-     *
-     * @param dbNode
-     * @param indexNode
-     * @return - Merged node
+     * @param existingProperties
+     * @param modelBasedProperties
+     * @return the results of merging the model-based properties into the existing properties, after first removing
+     * properties from the existing properties object that are not found in the model-based properties object
      */
-    protected JsonNode mergeIndexConfigs(JsonNode dbNode, JsonNode indexNode) {
-        // Get fields common to current db config and updated entity index config
-        JsonNode currentIndexNode = getCommonFields(dbNode, indexNode);
+    protected JsonNode mergeDatabaseProperties(ObjectNode existingProperties, ObjectNode modelBasedProperties) {
+        removeUnaffectedPropertiesFromExistingProperties(existingProperties, modelBasedProperties);
 
-        // Merge fields so that we dont delete any existing index config that's not in the entity index config
-        return JsonNodeUtil.mergeObjectNodes((ObjectNode) indexNode, (ObjectNode) currentIndexNode);
+        // Merge the model-based properties into the existing properties so that merges occur, model-based properties "win",
+        // and nothing is removed from the existing properties
+        return JsonNodeUtil.mergeObjectNodes(modelBasedProperties, existingProperties);
     }
 
-    private JsonNode getCommonFields(JsonNode targetNode, JsonNode sourceNode) {
+    /**
+     * Removes "unaffected" properties - i.e. those that are not present in modelBasedProperties and thus don't need
+     * to be overwritten or merged together. This allows us to submit a payload containing only the results of merging
+     * the new database properties into the existing database properties.
+     *
+     * @param existingProperties
+     * @param modelBasedProperties
+     * @return
+     */
+    private void removeUnaffectedPropertiesFromExistingProperties(ObjectNode existingProperties, ObjectNode modelBasedProperties) {
         Set<String> fieldNameSet = new HashSet<>();
-        sourceNode.fieldNames().forEachRemaining(fieldNameSet::add);
+        modelBasedProperties.fieldNames().forEachRemaining(fieldNameSet::add);
 
-        Iterator<String> iterator = targetNode.fieldNames();
+        Iterator<String> iterator = existingProperties.fieldNames();
         while (iterator.hasNext()) {
             String fieldName = iterator.next();
             if (!fieldNameSet.contains(fieldName)) {
                 iterator.remove();
             }
         }
-
-        return targetNode;
     }
 
     private ModelManager newModelManager() {
