@@ -52,6 +52,7 @@ public interface ModelsService {
             private BaseProxy.DBFunctionRequest req_generateModelConfig;
             private BaseProxy.DBFunctionRequest req_getPrimaryEntityTypes;
             private BaseProxy.DBFunctionRequest req_deleteModel;
+            private BaseProxy.DBFunctionRequest req_getModelUsage;
             private BaseProxy.DBFunctionRequest req_createModel;
             private BaseProxy.DBFunctionRequest req_updateModelEntityTypes;
 
@@ -69,6 +70,8 @@ public interface ModelsService {
                     "getPrimaryEntityTypes.sjs", BaseProxy.ParameterValuesKind.NONE);
                 this.req_deleteModel = this.baseProxy.request(
                     "deleteModel.sjs", BaseProxy.ParameterValuesKind.SINGLE_ATOMIC);
+                this.req_getModelUsage = this.baseProxy.request(
+                    "getModelUsage.sjs", BaseProxy.ParameterValuesKind.SINGLE_ATOMIC);
                 this.req_createModel = this.baseProxy.request(
                     "createModel.sjs", BaseProxy.ParameterValuesKind.SINGLE_NODE);
                 this.req_updateModelEntityTypes = this.baseProxy.request(
@@ -139,6 +142,21 @@ public interface ModelsService {
                       .withParams(
                           BaseProxy.atomicParam("entityName", false, BaseProxy.StringType.fromString(entityName))
                           ).responseNone();
+            }
+
+            @Override
+            public com.fasterxml.jackson.databind.JsonNode getModelUsage(String entityName) {
+                return getModelUsage(
+                    this.req_getModelUsage.on(this.dbClient), entityName
+                    );
+            }
+            private com.fasterxml.jackson.databind.JsonNode getModelUsage(BaseProxy.DBFunctionRequest request, String entityName) {
+              return BaseProxy.JsonDocumentType.toJsonNode(
+                request
+                      .withParams(
+                          BaseProxy.atomicParam("entityName", false, BaseProxy.StringType.fromString(entityName))
+                          ).responseSingle(false, Format.JSON)
+                );
             }
 
             @Override
@@ -216,6 +234,14 @@ public interface ModelsService {
    * 
    */
     void deleteModel(String entityName);
+
+  /**
+   * Returns a json containing usages of entity model in other models and steps.
+   *
+   * @param entityName	The name of the primary entity in the model
+   * @return	as output
+   */
+    com.fasterxml.jackson.databind.JsonNode getModelUsage(String entityName);
 
   /**
    * Create a new model, resulting in a new entity descriptor with a primary entity type in it.

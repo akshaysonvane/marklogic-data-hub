@@ -90,6 +90,21 @@ public class ModelController extends BaseController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
+    @RequestMapping(value = "/{modelName}", method = RequestMethod.DELETE)
+    @Secured("ROLE_writeEntityModel")
+    public ResponseEntity<Void> deleteModel(@PathVariable String modelName) {
+        newService().deleteModel(modelName);
+        logger.info("Deploying search options");
+        deploySearchOptions(newService().generateModelConfig());
+        return emptyOk();
+    }
+
+    @RequestMapping(value = "/{modelName}/usage", method = RequestMethod.GET)
+    @ApiOperation(value = "Get step and model names that refer to this model.", response = ModelUsageInfo.class)
+    public ResponseEntity<JsonNode> getModelUsage(@PathVariable String modelName) {
+        return ResponseEntity.ok(newService().getModelUsage(modelName));
+    }
+
     @RequestMapping(value = "/{modelName}/entityTypes", method = RequestMethod.PUT)
     @ApiImplicitParam(required = true, paramType = "body", dataType = "ModelDefinitions")
     @Secured("ROLE_writeEntityModel")
@@ -252,5 +267,10 @@ public class ModelController extends BaseController {
 
     public static class UpdateModelInfoInput {
         public String description;
+    }
+
+    public static class ModelUsageInfo {
+        public List<String> steps;
+        public List<String> models;
     }
 }

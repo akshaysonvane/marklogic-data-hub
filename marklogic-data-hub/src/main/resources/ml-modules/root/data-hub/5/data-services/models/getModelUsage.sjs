@@ -15,8 +15,9 @@
 */
 'use strict';
 
-const ds = require("/data-hub/5/data-services/ds-utils.sjs");
 const entityLib = require("/data-hub/5/impl/entity-lib.sjs");
+const ds = require("/data-hub/5/data-services/ds-utils.sjs");
+
 
 var entityName;
 if (!entityName) {
@@ -32,10 +33,7 @@ const entityTypeId = entityLib.getEntityTypeId(entityModel, entityName);
 const entityModelUri = entityLib.getModelUri(entityName);
 
 const steps = entityLib.findModelReferencesInSteps(entityName, entityTypeId);
-if (steps.length) {
-  ds.throwServerError(`Cannot delete the entity type '${entityName}' because it is referenced by the following step names: ${steps}`);
-}
+const models = entityLib.findModelReferencesInOtherModels(entityModelUri, entityTypeId);
+const result = {steps, models};
 
-entityLib.deleteModel(entityName);
-entityLib.deleteModelReferencesInOtherModels(entityModelUri, entityTypeId);
-entityLib.deleteModelRelatedTDE(entityName);
+result;

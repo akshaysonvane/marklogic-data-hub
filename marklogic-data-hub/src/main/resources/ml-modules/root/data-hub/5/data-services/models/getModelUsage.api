@@ -1,0 +1,15 @@
+{
+  "functionName": "getModelUsage",
+  "desc": "Returns a json containing usages of entity model in other models and steps.",
+  "params": [
+    {
+      "name": "entityName",
+      "datatype": "string",
+      "desc": "The name of the primary entity in the model"
+    }
+  ],
+  "return": {
+    "datatype": "jsonDocument",
+    "$javaClass": "com.fasterxml.jackson.databind.JsonNode"
+  }
+}

@@ -24,6 +24,7 @@
 const DataHubSingleton = require('/data-hub/5/datahub-singleton.sjs');
 const sem = require("/MarkLogic/semantics.xqy");
 const semPrefixes = {es: 'http://marklogic.com/entity-services#'};
+const consts = require("/data-hub/5/impl/consts.sjs");
 
 /**
  * @return an array of strings, one for each EntityType
@@ -208,6 +209,110 @@ function deleteModel(entityName) {
   }
 }
 
+function deleteModelRelatedTDE(entityName) {
+  const entityModel = findModelByEntityName(entityName);
+  if (entityModel) {
+    const entityTitle = entityModel.info.title;
+    const entityVersion = entityModel.info.version;
+    const uri = "/tde/" + entityTitle + "-" + entityVersion + ".tdex";
+    const dataHub = DataHubSingleton.instance();
+    [dataHub.config.STAGINGDATABASE, dataHub.config.FINALDATABASE].forEach(db => {
+      dataHub.hubUtils.deleteDocument(uri, xdmp.invokeFunction(() => xdmp.databaseName(xdmp.schemaDatabase(xdmp.database(db)))));
+    });
+  }
+}
+
+/**
+ * Returns the step names that contain a reference to the supplied entity.
+ * The targetEntityType for mapping artifacts is checked against both an entityName or an entityTypeId.
+ *
+ * @param entityName
+ * @param entityTypeId
+ * @returns {[]}
+ */
+function findModelReferencesInSteps(entityName, entityTypeId) {
+  const steps = [];
+  const mappingArtifacts = cts.search(cts.andQuery([
+    cts.collectionQuery('http://marklogic.com/data-hub/mappings'),
+    cts.jsonPropertyValueQuery("targetEntityType", [entityName, entityTypeId])
+  ]));
+  mappingArtifacts.toObject()
+    .forEach(mapping => {
+      mapping = JSON.parse(mapping);
+      steps.push(mapping.name)
+    });
+
+  const flowArtifact = cts.search(cts.andQuery([
+    cts.collectionQuery('http://marklogic.com/data-hub/flow'),
+    cts.notQuery(cts.collectionQuery(consts.HUB_ARTIFACT_COLLECTION)),
+    cts.jsonPropertyValueQuery("targetEntity", entityName)
+  ]));
+  flowArtifact.toObject()
+    .map(flow => JSON.parse(flow))
+    .filter(flow => flow.steps)
+    .forEach(flow => {
+      const flowSteps = flow.steps;
+      Object.keys(flowSteps)
+        .filter(stepNumber => flowSteps[stepNumber].options && flowSteps[stepNumber].options.targetEntity === entityName)
+        .forEach(stepNumber => steps.push(flowSteps[stepNumber].name));
+    });
+  return steps;
+}
+
+/**
+ * Returns the entity model names that contain a reference to the supplied entityTypeId.
+ *
+ * @param entityModelUri
+ * @param entityTypeId
+ * @returns {[]}
+ */
+function findModelReferencesInOtherModels(entityModelUri, entityTypeId) {
+  const affectedModels = new Set();
+  const entityModels = cts.search(cts.andNotQuery(cts.collectionQuery(consts.ENTITY_MODEL_COLLECTION), cts.documentQuery(entityModelUri))).toArray();
+  entityModels.map(model => JSON.parse(model))
+    .forEach(model => {
+      Object.keys(model.definitions)
+        .forEach(definition => {
+          const properties = model.definitions[definition].properties;
+          Object.keys(properties)
+            .some(property => {
+              if (properties[property]["$ref"] === entityTypeId || (properties[property]["datatype"] === "array" && properties[property]["items"]["$ref"] === entityTypeId)) {
+                affectedModels.add(model.info.title);
+              }
+            });
+        });
+    });
+
+  return [...affectedModels];
+}
+
+/**
+ * Finds and deletes the properties in all models that refers to the supplied entityTypeId.
+ *
+ * @param entityModelUri
+ * @param entityTypeId
+ */
+function deleteModelReferencesInOtherModels(entityModelUri, entityTypeId) {
+  const affectedModels = new Set();
+  const entityModels = cts.search(cts.andNotQuery(cts.collectionQuery(consts.ENTITY_MODEL_COLLECTION), cts.documentQuery(entityModelUri))).toArray();
+  entityModels.map(model => JSON.parse(model))
+    .forEach(model => {
+      Object.keys(model.definitions)
+        .forEach(definition => {
+          const properties = model.definitions[definition].properties;
+          Object.keys(properties)
+            .forEach(property => {
+              if (properties[property]["$ref"] === entityTypeId || (properties[property]["datatype"] === "array" && properties[property]["items"]["$ref"] === entityTypeId)) {
+                delete properties[property];
+                affectedModels.add(model);
+              }
+            });
+        });
+    });
+
+  [...affectedModels].forEach(model => writeModel(model.info.title, model));
+}
+
 /**
  * Handles writing the model to both databases. Will overwrite existing permissions/collections, which is consistent
  * with how DH has been since 5.0.
@@ -241,7 +346,7 @@ function writeModel(entityName, model) {
   const permissions = dataHub.hubUtils.parsePermissions(permsString);
 
   [dataHub.config.STAGINGDATABASE, dataHub.config.FINALDATABASE].forEach(db => {
-    dataHub.hubUtils.writeDocument(entityLib.getModelUri(name), model, permissions, getModelCollection(), db);
+    dataHub.hubUtils.writeDocument(entityLib.getModelUri(entityName), model, permissions, getModelCollection(), db);
   });
 }
 
@@ -264,6 +369,10 @@ function validateModelDefinitions(definitions) {
 
 module.exports = {
   deleteModel,
+  deleteModelRelatedTDE,
+  findModelReferencesInSteps,
+  findModelReferencesInOtherModels,
+  deleteModelReferencesInOtherModels,
   findEntityType,
   findEntityTypeByEntityName,
   findEntityTypeIds,
