@@ -2,18 +2,12 @@
   "role-name": "data-hub-entity-model-writer",
   "description": "Permits updating entity model documents",
   "role": [
-    "data-hub-common-writer",
-    "tde-admin"
+    "data-hub-common-writer"
   ],
   "privilege": [
     {
       "privilege-name": "any-uri",
       "action": "http://marklogic.com/xdmp/privileges/any-uri",
-      "kind": "execute"
-    },
-    {
-      "privilege-name": "rest-admin",
-      "action": "http://marklogic.com/xdmp/privileges/rest-admin",
       "kind": "execute"
     }
   ]

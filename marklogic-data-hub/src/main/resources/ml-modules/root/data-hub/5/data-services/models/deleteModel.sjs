@@ -38,4 +38,3 @@ if (steps.length) {
 
 entityLib.deleteModel(entityName);
 entityLib.deleteModelReferencesInOtherModels(entityModelUri, entityTypeId);
-entityLib.deleteModelRelatedTDE(entityName);

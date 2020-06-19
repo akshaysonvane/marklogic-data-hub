@@ -28,8 +28,7 @@ let $entity-def-map as map:map := $entity-def
 
 let $schema-permissions := (
   xdmp:default-permissions(),
-  xdmp:permission("data-hub-developer", "update"),
-  xdmp:permission("data-hub-operator", "read"),
+  xdmp:permission("data-hub-common", "read"),
   xdmp:permission("data-hub-entity-model-writer", "update")
 )
 

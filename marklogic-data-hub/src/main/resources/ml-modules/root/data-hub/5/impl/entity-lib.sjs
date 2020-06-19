@@ -209,19 +209,6 @@ function deleteModel(entityName) {
   }
 }
 
-function deleteModelRelatedTDE(entityName) {
-  const entityModel = findModelByEntityName(entityName);
-  if (entityModel) {
-    const entityTitle = entityModel.info.title;
-    const entityVersion = entityModel.info.version;
-    const uri = "/tde/" + entityTitle + "-" + entityVersion + ".tdex";
-    const dataHub = DataHubSingleton.instance();
-    [dataHub.config.STAGINGDATABASE, dataHub.config.FINALDATABASE].forEach(db => {
-      dataHub.hubUtils.deleteDocument(uri, xdmp.invokeFunction(() => xdmp.databaseName(xdmp.schemaDatabase(xdmp.database(db)))));
-    });
-  }
-}
-
 /**
  * Returns the step names that contain a reference to the supplied entity.
  * The targetEntityType for mapping artifacts is checked against both an entityName or an entityTypeId.
@@ -369,7 +356,6 @@ function validateModelDefinitions(definitions) {
 
 module.exports = {
   deleteModel,
-  deleteModelRelatedTDE,
   findModelReferencesInSteps,
   findModelReferencesInOtherModels,
   deleteModelReferencesInOtherModels,

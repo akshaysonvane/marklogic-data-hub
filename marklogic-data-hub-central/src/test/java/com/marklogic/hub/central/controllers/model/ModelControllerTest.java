@@ -160,6 +160,9 @@ public class ModelControllerTest extends AbstractHubCentralTest {
         assertThrows(FailedRequestException.class, () -> controller.deleteModel("Entity2"), "Should throw an exception since the entity is referenced in steps.");
         removeReferencesToEntity();
         assertTrue(controller.deleteModel("Entity2").getStatusCode().is2xxSuccessful(), "Should be ok since we deleted the steps that refer to the entity.");
+
+        // Needed because a post-commit trigger is executed after a model is deleted
+        waitForTasksToFinish();
     }
 
     private JsonNode loadModel(DatabaseClient client) {
