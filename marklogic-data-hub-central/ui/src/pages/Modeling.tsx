@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { faUndo } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { MLButton, MLTooltip, MLAlert } from '@marklogic/design-system';
+import React, {useContext, useEffect, useState} from 'react';
+import {faUndo} from "@fortawesome/free-solid-svg-icons";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {MLAlert, MLButton, MLTooltip} from '@marklogic/design-system';
 
 import ConfirmationModal from '../components/confirmation-modal/confirmation-modal';
 import EntityTypeModal from '../components/modeling/entity-type-modal/entity-type-modal';
@@ -17,7 +17,7 @@ import { ConfirmationType } from '../types/modeling-types';
 
 const Modeling: React.FC = () => {
   const { handleError, resetSessionTime } = useContext(UserContext);
-  const { modelingOptions, setEntityTypeNamesArray, clearEntityModified } = useContext(ModelingContext);
+  const { modelingOptions, setEntityTypeNamesArray, toggleIsModified, clearEntityModified } = useContext(ModelingContext);
   const [entityTypes, setEntityTypes] = useState<any[]>([]);
   const [showEntityModal, toggleShowEntityModal] = useState(false);
   const [isEditModal, toggleIsEditModal] = useState(false);
@@ -87,8 +87,18 @@ const Modeling: React.FC = () => {
   const confirmAction = () => {
     if (confirmType === ConfirmationType.SaveAll) {
       saveAllEntitiesToServer();
+    } else if (confirmType === ConfirmationType.RevertAll) {
+      resetAllEntityTypes();
     }
   }
+
+  const resetAllEntityTypes = () => {
+    getPrimaryEntityTypes().then(() => {
+      clearEntityModified();
+      toggleIsModified(false);
+      toggleConfirmModal(false);
+    })
+  };
 
   const addButton = <MLButton 
     type="primary"
@@ -132,7 +142,11 @@ const Modeling: React.FC = () => {
             <span className={styles.publishIcon}></span>
             Save All
           </MLButton>
-          <MLButton disabled aria-label="revert-all">
+          <MLButton aria-label="revert-all" onClick={() => {
+            setConfirmType(ConfirmationType.RevertAll);
+            toggleConfirmModal(true)
+          }}
+                    disabled={!modelingOptions.isModified}>
             <FontAwesomeIcon 
               className={styles.icon} 
               icon={faUndo} 

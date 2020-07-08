@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
-import { MLTable, MLTooltip } from '@marklogic/design-system';
-import { faUndo, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import React, {useContext, useEffect, useState} from 'react';
+import {Link} from 'react-router-dom';
+import {MLTable, MLTooltip} from '@marklogic/design-system';
+import {faTrashAlt, faUndo} from "@fortawesome/free-solid-svg-icons";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import styles from './entity-type-table.module.scss';
 
 import PropertyTable from '../property-table/property-table';
 import ConfirmationModal from '../../confirmation-modal/confirmation-modal';
-import { entityReferences, deleteEntity, updateEntityModels } from '../../../api/modeling';
-import { ConfirmationType } from '../../../types/modeling-types';
-import { UserContext } from '../../../util/user-context';
-import { ModelingContext } from '../../../util/modeling-context';
-import { queryDateConverter, relativeTimeConverter } from '../../../util/date-conversion';
-import { numberConverter } from '../../../util/number-conversion';
-import { ModelingTooltips } from '../../../config/tooltips.config';
+import {deleteEntity, entityReferences, primaryEntityTypes, updateEntityModels} from '../../../api/modeling';
+import {ConfirmationType} from '../../../types/modeling-types';
+import {UserContext} from '../../../util/user-context';
+import {ModelingContext} from '../../../util/modeling-context';
+import {queryDateConverter, relativeTimeConverter} from '../../../util/date-conversion';
+import {numberConverter} from '../../../util/number-conversion';
+import {ModelingTooltips} from '../../../config/tooltips.config';
 
 type Props = {
   allEntityTypesData: any[];
@@ -34,9 +34,6 @@ const EntityTypeTable: React.FC<Props> = (props) => {
   const [confirmBoldTextArray, setConfirmBoldTextArray] = useState<string[]>([]);
   const [stepValuesArray, setStepValuesArray] = useState<string[]>([]);
   const [confirmType, setConfirmType] = useState<ConfirmationType>(ConfirmationType.DeleteEntity);
-
-  // Disabling all action icons for now
-  const [disabled, setDisabled] = useState(true);
 
   useEffect(() => {
     if (props.autoExpand){
@@ -110,10 +107,52 @@ const EntityTypeTable: React.FC<Props> = (props) => {
     toggleConfirmModal(true);
   }
 
+  const revertEntity = async () => {
+    const entityName = confirmBoldTextArray[0];
+    const entityTypes = await getPrimaryEntityTypes();
+    if (entityTypes.length > 0) {
+      const entityNameFilter = (entity) => entity.entityName === entityName;
+      const originalEntity = entityTypes.find(entityNameFilter);
+      const updatedEntity = allEntityTypes.find(entityNameFilter);
+
+      updatedEntity.model.definitions = originalEntity.model.definitions;
+
+      const modifiedEntity = modelingOptions.modifiedEntitiesArray.filter(entityNameFilter)[0];
+      removeEntityModified(modifiedEntity);
+    }
+    toggleConfirmModal(false);
+  }
+
+  const getPrimaryEntityTypes = async () => {
+    try {
+      const response = await primaryEntityTypes();
+        return response['data'];
+    } catch (error) {
+      handleError(error)
+    } finally {
+      resetSessionTime();
+    }
+  }
+
+  const confirmRevertEntity = (entityName: string) => {
+    setConfirmBoldTextArray([entityName]);
+    setStepValuesArray([]);
+    setConfirmType(ConfirmationType.RevertEntity);
+    toggleConfirmModal(true);
+  }
+
+  const isEntityModified = (entityName: string) => {
+    return modelingOptions.modifiedEntitiesArray.some(entity => entity.entityName === entityName)
+  }
+
   const confirmAction = () => {
     if (confirmType === ConfirmationType.SaveEntity) {
       saveEntityToServer();
-    } else {
+    }
+    else if (confirmType === ConfirmationType.RevertEntity) {
+      revertEntity();
+    }
+    else {
       deleteEntityFromServer();
     }
   }
@@ -218,21 +257,21 @@ const EntityTypeTable: React.FC<Props> = (props) => {
           <div className={styles.iconContainer}>
           <MLTooltip title={ModelingTooltips.saveIcon}>
             <span
-              data-testid={text + '-save-icon'} 
+              data-testid={text + '-save-icon'}
               className={!props.canWriteEntityModel && props.canReadEntityModel ? styles.iconSaveReadOnly : styles.iconSave}
               onClick={() => confirmSaveEntity(text)}
-            ></span>
+            />
           </MLTooltip>
           <MLTooltip title={ModelingTooltips.revertIcon}>
             <FontAwesomeIcon 
               data-testid={text + '-revert-icon'} 
-              className={!props.canWriteEntityModel && props.canReadEntityModel || disabled ? styles.iconRevertReadOnly : styles.iconRevert} 
+              className={!props.canWriteEntityModel && props.canReadEntityModel ? styles.iconRevertReadOnly : styles.iconRevert}
               icon={faUndo}
               onClick={(event) => {
                 if (!props.canWriteEntityModel && props.canReadEntityModel) {
                   return event.preventDefault()
                 } else {
-                  // TODO revert icon goes here
+                  confirmRevertEntity(text);
                 }
               }}
               size="2x"
