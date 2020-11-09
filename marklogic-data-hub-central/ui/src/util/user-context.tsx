@@ -107,6 +107,52 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
     localStorage.setItem('hubCentralSessionToken', session.data.sessionToken);
     monitorSession();
 
+    if (session.data.pendoKey) {
+      window.usePendo(session.data.pendoKey);
+      window.pendo.initialize({
+          excludeAllText:true,
+          excludeTitle:true
+      });
+      window.pendo.identify({
+        visitor: {
+          id:              username,   // Required if user is logged in
+          // email:        // Recommended if using Pendo Feedback, or NPS Email
+          // full_name:    // Recommended if using Pendo Feedback
+          role:         authResponse.authorities || []
+
+          // You can add any additional visitor level key-values here,
+          // as long as it's not one of the above reserved names.
+        },
+
+        account: {
+          id:           session.data.serviceName, // Highly recommended
+          // name:         // Optional
+          // is_paying:    // Recommended if using Pendo Feedback
+          // monthly_value:// Recommended if using Pendo Feedback
+          // planLevel:    // Optional
+          // planPrice:    // Optional
+          // creationDate: // Optional
+
+          // You can add any additional account level key-values here,
+          // as long as it's not one of the above reserved names.
+          dataHubVersion: session.data.dataHubVersion,
+          marklogicVersion: session.data.marklogicVersion
+        }
+      });
+
+      window.pendo.track("User logged in", {
+        user: username
+      });
+    }
+
+    // axios.put(`https://app.pendo.io/api/v1/metadata/visitor/pendo/value/${username}/donotprocess`, true, {headers:{
+    //     'content-type':'application/json',
+    //     'x-pendo-integration-key':session.data.pendoKey
+    //   }}).then(res => {
+    //   console.log(res);
+    //   console.log(res.data);
+    // })
+
     const authorities: string[] =  authResponse.authorities || [];
     authoritiesService.setAuthorities(authorities);
 
