@@ -107,7 +107,7 @@ const UserProvider: React.FC<{ children: any }> = ({children}) => {
     localStorage.setItem('hubCentralSessionToken', session.data.sessionToken);
     monitorSession();
 
-    if (session.data.pendoKey) {
+    if (typeof window.usePendo === "function" && session.data.pendoKey) {
       window.usePendo(session.data.pendoKey);
       window.pendo.initialize({
           excludeAllText:true,

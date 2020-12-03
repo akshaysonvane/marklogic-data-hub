@@ -181,6 +181,34 @@ task copyUiFiles(type: Copy, dependsOn: deleteSpringBootUiFiles, group: taskGrou
     into springBootUiPath
 }
 
+task injectPendoCode() {
+    if (project.hasProperty("buildPendo")) {
+        def indexFile = new File("marklogic-data-hub-central/ui/public/index.html")
+
+        if (indexFile.exists()) {
+            def indexFileContent = indexFile.getText()
+            StringBuilder stringBuilder = new StringBuilder(indexFileContent)
+            stringBuilder.insert(indexFileContent.indexOf("</html>"), "  <script>\n" +
+                    "    function usePendo(apiKey) {\n" +
+                    "      (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=[];\n" +
+                    "        v=['initialize','identify','updateOptions','pageLoad','track'];for(w=0,x=v.length;w<x;++w)(function(m){\n" +
+                    "          o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);\n" +
+                    "        y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+apiKey+'/pendo.js';\n" +
+                    "        z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');\n" +
+                    "    }\n" +
+                    "  </script>\n")
+            def fos = new FileOutputStream(indexFile.getPath())
+            fos.write(stringBuilder.toString().getBytes())
+            fos.flush()
+            fos.close()
+        }
+    }
+}
+
+if (project.hasProperty("buildPendo")) {
+    installDependencies.dependsOn injectPendoCode
+}
+
 // Before the Spring Boot jar is built, build the UI files and copy them over
 if (!(
     gradle.startParameter.taskNames*.toLowerCase().contains("publishplugins") ||
